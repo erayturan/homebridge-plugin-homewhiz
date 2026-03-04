@@ -89,6 +89,7 @@ export interface AcControlProfile {
   swingVertical?: EnumControlProfile | BooleanControlProfile;
   swingHorizontal?: EnumControlProfile;
   modeToProgram: Partial<Record<Exclude<AcMode, 'off'>, string>>;
+  availableModes: Exclude<AcMode, 'off'>[];
 }
 
 export interface AcSnapshot {
@@ -98,6 +99,7 @@ export interface AcSnapshot {
   targetTemperature?: number;
   fanPercent?: number;
   swingMode?: boolean;
+  jetMode?: boolean;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -402,10 +404,7 @@ function preferredProgramLabel(
 }
 
 function getSwingControl(profile: AcControlProfile): EnumControlProfile | BooleanControlProfile | undefined {
-  if (profile.swingVertical) {
-    return profile.swingVertical;
-  }
-  return profile.swingHorizontal;
+  return profile.swingVertical ?? profile.swingHorizontal;
 }
 
 function readSwingControl(control: EnumControlProfile | BooleanControlProfile, data: Uint8Array): boolean {
@@ -435,6 +434,22 @@ function writeSwingControl(
     index: control.writeIndex,
     value: option.value,
   };
+}
+
+function profileFallbackMode(profile: AcControlProfile): Exclude<AcMode, 'off'> {
+  if (profile.availableModes.includes('auto')) {
+    return 'auto';
+  }
+  if (profile.availableModes.includes('cool')) {
+    return 'cool';
+  }
+  if (profile.availableModes.includes('heat')) {
+    return 'heat';
+  }
+  if (profile.availableModes.includes('fan')) {
+    return 'fan';
+  }
+  return 'dry';
 }
 
 export function extractAcControlProfile(rawConfig: unknown): AcControlProfile | null {
@@ -505,6 +520,7 @@ export function extractAcControlProfile(rawConfig: unknown): AcControlProfile | 
       modeToProgram[mode] = option.label;
     }
   }
+  const availableModes = Object.keys(modeToProgram) as Exclude<AcMode, 'off'>[];
 
   return {
     state,
@@ -516,6 +532,7 @@ export function extractAcControlProfile(rawConfig: unknown): AcControlProfile | 
     swingVertical,
     swingHorizontal,
     modeToProgram,
+    availableModes,
   };
 }
 
@@ -543,6 +560,7 @@ export function readAcSnapshot(data: Uint8Array, profile: AcControlProfile): AcS
 
   const swingControl = getSwingControl(profile);
   const swingMode = swingControl ? readSwingControl(swingControl, data) : undefined;
+  const jetMode = profile.jetMode ? readBoolean(profile.jetMode, data) : undefined;
 
   return {
     power,
@@ -551,7 +569,16 @@ export function readAcSnapshot(data: Uint8Array, profile: AcControlProfile): AcS
     targetTemperature,
     fanPercent,
     swingMode,
+    jetMode,
   };
+}
+
+export function supportsMode(profile: AcControlProfile, mode: Exclude<AcMode, 'off'>): boolean {
+  return profile.availableModes.includes(mode);
+}
+
+export function getDefaultMode(profile: AcControlProfile): Exclude<AcMode, 'off'> {
+  return profileFallbackMode(profile);
 }
 
 export function setPower(profile: AcControlProfile, power: boolean, currentData: Uint8Array): HomeWhizCommand[] {
@@ -627,10 +654,39 @@ export function setFanPercent(
 export function setSwingMode(
   profile: AcControlProfile,
   enabled: boolean,
+): HomeWhizCommand[] {
+  const commands: HomeWhizCommand[] = [];
+  if (profile.swingVertical) {
+    const command = writeSwingControl(profile.swingVertical, enabled);
+    if (command) {
+      commands.push(command);
+    }
+  }
+  if (profile.swingHorizontal) {
+    const command = writeSwingControl(profile.swingHorizontal, enabled);
+    if (command && !commands.find((existing) => existing.index === command.index && existing.value === command.value)) {
+      commands.push(command);
+    }
+  }
+  if (!commands.length) {
+    const swingControl = getSwingControl(profile);
+    if (!swingControl) {
+      return [];
+    }
+    const command = writeSwingControl(swingControl, enabled);
+    if (command) {
+      commands.push(command);
+    }
+  }
+  return commands;
+}
+
+export function setJetMode(
+  profile: AcControlProfile,
+  enabled: boolean,
 ): HomeWhizCommand | undefined {
-  const swingControl = getSwingControl(profile);
-  if (!swingControl) {
+  if (!profile.jetMode) {
     return undefined;
   }
-  return writeSwingControl(swingControl, enabled);
+  return writeBoolean(profile.jetMode, enabled);
 }

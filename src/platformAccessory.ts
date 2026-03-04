@@ -5,11 +5,14 @@ import type {
 } from 'homebridge';
 
 import {
+  getDefaultMode,
   readAcSnapshot,
   setFanPercent as buildFanSpeedCommand,
+  setJetMode as buildJetModeCommand,
   setMode as buildModeCommands,
   setSwingMode as buildSwingCommand,
   setTargetTemperature as buildTargetTemperatureCommand,
+  supportsMode,
   type AcControlProfile,
 } from './acModel.js';
 import { HomeWhizCloudClient } from './homewhizCloudClient.js';
@@ -45,6 +48,9 @@ function defaultManufacturer(brandCode: number): string {
 export class HomeWhizPlatformAccessory {
   private readonly thermostat: Service;
   private readonly fanService?: Service;
+  private readonly jetService?: Service;
+  private readonly dryModeService?: Service;
+  private readonly fanOnlyModeService?: Service;
   private unsubscribe?: () => void;
 
   constructor(
@@ -109,11 +115,39 @@ export class HomeWhizPlatformAccessory {
       }
     }
 
+    if (this.profile.jetMode) {
+      this.jetService = this.accessory.getService(`${appliance.name} Jet`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${appliance.name} Jet`, 'jet');
+      this.jetService.getCharacteristic(this.platform.Characteristic.Name).updateValue(`${appliance.name} Jet`);
+      this.jetService.getCharacteristic(this.platform.Characteristic.On)
+        .onGet(this.getJetMode.bind(this))
+        .onSet(this.setJetMode.bind(this));
+    }
+
+    if (supportsMode(this.profile, 'dry')) {
+      this.dryModeService = this.accessory.getService(`${appliance.name} Dry`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${appliance.name} Dry`, 'dry-mode');
+      this.dryModeService.getCharacteristic(this.platform.Characteristic.Name).updateValue(`${appliance.name} Dry`);
+      this.dryModeService.getCharacteristic(this.platform.Characteristic.On)
+        .onGet(this.getDryMode.bind(this))
+        .onSet(this.setDryMode.bind(this));
+    }
+
+    if (supportsMode(this.profile, 'fan')) {
+      this.fanOnlyModeService = this.accessory.getService(`${appliance.name} Fan Only`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${appliance.name} Fan Only`, 'fan-mode');
+      this.fanOnlyModeService.getCharacteristic(this.platform.Characteristic.Name).updateValue(`${appliance.name} Fan Only`);
+      this.fanOnlyModeService.getCharacteristic(this.platform.Characteristic.On)
+        .onGet(this.getFanOnlyMode.bind(this))
+        .onSet(this.setFanOnlyMode.bind(this));
+    }
+
     this.unsubscribe = this.client.onData(() => {
       this.refreshCharacteristics();
     });
 
     this.refreshCharacteristics();
+    this.platform.api.updatePlatformAccessories([this.accessory]);
   }
 
   dispose(): void {
@@ -219,7 +253,7 @@ export class HomeWhizPlatformAccessory {
     if (!data) {
       return;
     }
-    const targetMode = Number(value) === this.platform.Characteristic.Active.ACTIVE ? 'auto' : 'off';
+    const targetMode = Number(value) === this.platform.Characteristic.Active.ACTIVE ? getDefaultMode(this.profile) : 'off';
     const commands = buildModeCommands(this.profile, targetMode, data);
     await this.platform.sendCommands(this.accessory.context.device.applianceId, commands);
   }
@@ -246,14 +280,94 @@ export class HomeWhizPlatformAccessory {
   }
 
   private async setSwingMode(value: CharacteristicValue): Promise<void> {
-    const command = buildSwingCommand(
+    const commands = buildSwingCommand(
       this.profile,
       Number(value) === this.platform.Characteristic.SwingMode.SWING_ENABLED,
     );
+    if (!commands.length) {
+      return;
+    }
+    await this.platform.sendCommands(this.accessory.context.device.applianceId, commands);
+  }
+
+  private getJetMode(): CharacteristicValue {
+    const snapshot = this.getSnapshot();
+    return snapshot?.jetMode === true;
+  }
+
+  private async setJetMode(value: CharacteristicValue): Promise<void> {
+    const command = buildJetModeCommand(this.profile, Boolean(value));
     if (!command) {
       return;
     }
     await this.platform.sendCommand(this.accessory.context.device.applianceId, command);
+  }
+
+  private getDryMode(): CharacteristicValue {
+    const snapshot = this.getSnapshot();
+    return snapshot?.power === true && snapshot.mode === 'dry';
+  }
+
+  private async setDryMode(value: CharacteristicValue): Promise<void> {
+    const data = this.client.currentData;
+    const snapshot = this.getSnapshot();
+    if (!data || !snapshot) {
+      return;
+    }
+
+    if (value) {
+      await this.platform.sendCommands(
+        this.accessory.context.device.applianceId,
+        buildModeCommands(this.profile, 'dry', data),
+      );
+      return;
+    }
+
+    if (snapshot.mode === 'dry') {
+      const fallback = this.getFallbackMode('dry');
+      await this.platform.sendCommands(
+        this.accessory.context.device.applianceId,
+        buildModeCommands(this.profile, fallback, data),
+      );
+    }
+  }
+
+  private getFanOnlyMode(): CharacteristicValue {
+    const snapshot = this.getSnapshot();
+    return snapshot?.power === true && snapshot.mode === 'fan';
+  }
+
+  private async setFanOnlyMode(value: CharacteristicValue): Promise<void> {
+    const data = this.client.currentData;
+    const snapshot = this.getSnapshot();
+    if (!data || !snapshot) {
+      return;
+    }
+
+    if (value) {
+      await this.platform.sendCommands(
+        this.accessory.context.device.applianceId,
+        buildModeCommands(this.profile, 'fan', data),
+      );
+      return;
+    }
+
+    if (snapshot.mode === 'fan') {
+      const fallback = this.getFallbackMode('fan');
+      await this.platform.sendCommands(
+        this.accessory.context.device.applianceId,
+        buildModeCommands(this.profile, fallback, data),
+      );
+    }
+  }
+
+  private getFallbackMode(excluded: 'dry' | 'fan'): 'auto' | 'cool' | 'heat' | 'fan' | 'dry' {
+    const candidates: Array<'auto' | 'cool' | 'heat' | 'fan' | 'dry'> = ['auto', 'cool', 'heat', 'fan', 'dry'];
+    const mode = candidates.find((candidate) => candidate !== excluded && supportsMode(this.profile, candidate));
+    if (mode) {
+      return mode;
+    }
+    return getDefaultMode(this.profile);
   }
 
   private refreshCharacteristics(): void {
@@ -300,6 +414,27 @@ export class HomeWhizPlatformAccessory {
             : this.platform.Characteristic.SwingMode.SWING_DISABLED,
         );
       }
+    }
+
+    if (this.jetService && snapshot.jetMode !== undefined) {
+      this.jetService.updateCharacteristic(
+        this.platform.Characteristic.On,
+        snapshot.jetMode,
+      );
+    }
+
+    if (this.dryModeService) {
+      this.dryModeService.updateCharacteristic(
+        this.platform.Characteristic.On,
+        snapshot.power === true && snapshot.mode === 'dry',
+      );
+    }
+
+    if (this.fanOnlyModeService) {
+      this.fanOnlyModeService.updateCharacteristic(
+        this.platform.Characteristic.On,
+        snapshot.power === true && snapshot.mode === 'fan',
+      );
     }
   }
 }

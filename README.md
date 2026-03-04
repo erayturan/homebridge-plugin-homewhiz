@@ -2,13 +2,13 @@
 
 Homebridge dynamic platform plugin for HomeWhiz **Wi-Fi air conditioners**.
 
-This repository currently targets an MVP scope:
+This repository currently targets a Wi-Fi AC scope:
 
 - Wi-Fi/cloud connection only
 - Air conditioner devices only
 - No Bluetooth support
 
-## Implemented in MVP
+## Implemented
 
 - Login to HomeWhiz cloud
 - Discover appliances from account
@@ -17,13 +17,18 @@ This repository currently targets an MVP scope:
 - Connect to AWS IoT MQTT shadow for state updates
 - Send write commands for:
   - Power (on/off)
-  - HVAC mode (off/auto/cool/heat)
+  - HVAC mode (off/auto/cool/heat + dry/fan where available)
   - Target temperature
   - Fan speed (when device exposes fan control)
-  - Swing mode (when device exposes swing control)
+  - Swing mode (vertical/horizontal; both axes if available)
+  - Jet/Preset mode (when device exposes jet control)
 - HomeKit services:
   - `Thermostat`
   - `Fanv2` (optional, if supported by the device profile)
+  - `Switch` services for advanced controls (optional):
+    - Jet
+    - Dry mode
+    - Fan-only mode
 
 ## Install
 
@@ -71,4 +76,3 @@ npm run lint
 npm run build
 npm run watch
 ```
-
