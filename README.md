@@ -86,3 +86,23 @@ npm run lint
 npm run build
 npm run watch
 ```
+
+## Publish to npm
+
+```bash
+# 1) login once
+npm login
+
+# 2) verify package contents
+npm pack --dry-run
+
+# 3) publish current version
+npm publish --access public
+```
+
+If you need a new release first:
+
+```bash
+npm version patch
+npm publish --access public
+```

@@ -2,8 +2,7 @@
   "name": "homebridge-plugin-homewhiz",
   "displayName": "HomeWhiz",
   "type": "module",
-  "version": "1.1.1",
-  "private": true,
+  "version": "1.1.2",
   "description": "Homebridge plugin for HomeWhiz Wi-Fi air conditioners.",
   "author": "HomeWhiz Community",
   "license": "Apache-2.0",
@@ -22,6 +21,12 @@
     "climate"
   ],
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": "^20.18.0 || ^22.10.0 || ^24.0.0",
     "homebridge": "^1.8.0 || ^2.0.0-beta.0"
@@ -46,5 +51,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
