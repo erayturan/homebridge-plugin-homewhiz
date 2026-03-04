@@ -1,0 +1,51 @@
+{
+  "pluginAlias": "HomeWhiz",
+  "pluginType": "platform",
+  "singular": false,
+  "strictValidation": false,
+  "schema": {
+    "type": "object",
+    "required": ["name", "username", "password"],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "HomeWhiz"
+      },
+      "username": {
+        "title": "HomeWhiz Username",
+        "type": "string"
+      },
+      "password": {
+        "title": "HomeWhiz Password",
+        "type": "string",
+        "format": "password"
+      },
+      "language": {
+        "title": "Language",
+        "type": "string",
+        "default": "en-GB"
+      },
+      "applianceIds": {
+        "title": "Appliance IDs (Optional)",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "pollIntervalSeconds": {
+        "title": "Shadow Refresh Interval (Seconds)",
+        "type": "integer",
+        "minimum": 15,
+        "maximum": 600,
+        "default": 60
+      },
+      "includeBluetoothDevices": {
+        "title": "Include Bluetooth Devices",
+        "type": "boolean",
+        "default": false
+      }
+    }
+  }
+}
