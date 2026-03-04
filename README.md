@@ -8,6 +8,16 @@ This repository currently targets a Wi-Fi AC scope:
 - Air conditioner devices only
 - No Bluetooth support
 
+## Project Origin
+
+- This project was started from a cloned codebase reference of the Home Assistant integration:
+  - https://github.com/home-assistant-HomeWhiz/home-assistant-HomeWhiz
+- The Home Assistant implementation was adapted and converted to a Homebridge plugin architecture with AI-assisted development/refactoring.
+- Scope difference:
+  - This repository focuses on **Homebridge + Wi-Fi cloud devices**.
+  - **Bluetooth device support is intentionally not implemented** in this project.
+  - The original Home Assistant project remains a separate project with its own architecture and feature set.
+
 ## Implemented
 
 - Login to HomeWhiz cloud
