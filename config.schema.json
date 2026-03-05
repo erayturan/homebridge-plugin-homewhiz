@@ -40,11 +40,6 @@
         "minimum": 15,
         "maximum": 600,
         "default": 60
-      },
-      "includeBluetoothDevices": {
-        "title": "Include Bluetooth Devices",
-        "type": "boolean",
-        "default": false
       }
     }
   }
