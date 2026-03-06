@@ -2,6 +2,8 @@
 
 Homebridge dynamic platform plugin for HomeWhiz **Wi-Fi air conditioners**.
 
+[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=flat)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
+
 This repository currently targets a Wi-Fi AC scope:
 
 - Wi-Fi/cloud connection only
