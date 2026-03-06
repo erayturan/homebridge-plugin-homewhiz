@@ -2,7 +2,7 @@
   "name": "homebridge-plugin-homewhiz",
   "displayName": "Homebridge HomeWhiz Plugin",
   "type": "module",
-  "version": "1.1.7",
+  "version": "1.2.0",
   "description": "Homebridge plugin for HomeWhiz Wi-Fi air conditioners.",
   "author": "HomeWhiz Community",
   "license": "Apache-2.0",
